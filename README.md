@@ -1,4 +1,4 @@
-# PagePalAI Browser Extension
+# PagePal AI Browser Extension
 
 A Manifest V3 browser extension that allows you to ask questions about webpage content using your own OpenAI API key.
 
@@ -25,11 +25,11 @@ A Manifest V3 browser extension that allows you to ask questions about webpage c
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable "Developer mode" (toggle in top right)
 3. Click "Load unpacked" and select the extension directory (the root folder containing `manifest.json`)
-4. The PagePalAI extension should now appear in your extensions
+4. The PagePal AI extension should now appear in your extensions
 
 ### 3. Configure Your API Key
 
-1. Click the PagePalAI extension icon in your browser toolbar
+1. Click the PagePal AI extension icon in your browser toolbar
 2. On first use, you'll see the settings screen
 3. Paste your OpenAI API key in the input field
 4. Click "Save API Key"
@@ -37,7 +37,7 @@ A Manifest V3 browser extension that allows you to ask questions about webpage c
 ### 4. Usage
 
 1. Navigate to any webpage
-2. Click the PagePalAI extension icon
+2. Click the PagePal AI extension icon
 3. Type a question about the page content
 4. Select your preferred model (GPT-4o Mini is fastest and cheapest)
 5. Click "Ask Question"
@@ -67,7 +67,7 @@ paigewise-extension/
 
 - **Local Storage**: Your API key is stored locally in Chrome's sync storage and never sent to any third-party servers (except OpenAI)
 - **Direct Communication**: The extension communicates directly with OpenAI's API - no intermediary servers
-- **No Data Collection**: PagePalAI doesn't collect or store any of your browsing data or questions
+- **No Data Collection**: PagePal AI doesn't collect or store any of your browsing data or questions
 
 ## Development Notes
 
