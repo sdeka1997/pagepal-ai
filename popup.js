@@ -13,6 +13,7 @@ class PagePalAIPopup {
     this.apiKeyInput = document.getElementById('apiKey');
     this.saveKeyBtn = document.getElementById('saveKeyBtn');
     this.mainSection = document.getElementById('mainSection');
+    this.themeToggle = document.getElementById('themeToggle');
     
     this.init();
   }
@@ -21,6 +22,7 @@ class PagePalAIPopup {
     this.questionForm.addEventListener('submit', (e) => this.handleSubmit(e));
     this.settingsBtn.addEventListener('click', () => this.toggleSettings());
     this.saveKeyBtn.addEventListener('click', () => this.saveApiKey());
+    this.themeToggle.addEventListener('click', () => this.toggleTheme());
     
     // Load saved preferences and check API key
     this.loadPreferences();
@@ -31,12 +33,16 @@ class PagePalAIPopup {
 
   async loadPreferences() {
     try {
-      const result = await chrome.storage.sync.get(['preferredModel', 'openaiApiKey']);
+      const result = await chrome.storage.sync.get(['preferredModel', 'openaiApiKey', 'theme']);
       
       // Load model preference
       if (result.preferredModel) {
         this.modelSelect.value = result.preferredModel;
       }
+      
+      // Load theme preference (default to dark)
+      const theme = result.theme || 'dark';
+      this.applyTheme(theme);
       
       // Check if API key exists and show appropriate UI
       if (result.openaiApiKey) {
@@ -49,6 +55,8 @@ class PagePalAIPopup {
     } catch (error) {
       console.log('Could not load preferences:', error);
       this.showSettings();
+      // Still apply dark theme as default even if loading fails
+      this.applyTheme('dark');
     }
   }
 
@@ -255,6 +263,40 @@ ${context.substring(0, 15000)}` // Limit context to ~15k chars to stay within to
 
   hideAnswer() {
     this.answerDiv.style.display = 'none';
+  }
+
+  async toggleTheme() {
+    try {
+      const result = await chrome.storage.sync.get(['theme']);
+      const currentTheme = result.theme || 'dark';
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      
+      this.applyTheme(newTheme);
+      await this.saveTheme(newTheme);
+    } catch (error) {
+      console.log('Could not toggle theme:', error);
+    }
+  }
+
+  applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    
+    // Update theme toggle button icon
+    if (theme === 'dark') {
+      this.themeToggle.textContent = '☀️'; // Sun icon for switching to light
+      this.themeToggle.title = 'Switch to light mode';
+    } else {
+      this.themeToggle.textContent = '🌙'; // Moon icon for switching to dark
+      this.themeToggle.title = 'Switch to dark mode';
+    }
+  }
+
+  async saveTheme(theme) {
+    try {
+      await chrome.storage.sync.set({ theme: theme });
+    } catch (error) {
+      console.log('Could not save theme preference:', error);
+    }
   }
 }
 
