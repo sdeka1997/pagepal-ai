@@ -173,23 +173,36 @@ class PagePalAIPopup {
   }
 
   async getPageText() {
-    return new Promise((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, { action: 'GET_PAGE_TEXT' }, (response) => {
-            if (chrome.runtime.lastError) {
-              resolve({ 
-                success: false, 
-                error: chrome.runtime.lastError.message 
-              });
-            } else {
-              resolve(response || { success: false, error: 'No response from content script' });
-            }
-          });
-        } else {
+    return new Promise(async (resolve) => {
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tabs[0]) {
           resolve({ success: false, error: 'No active tab found' });
+          return;
         }
-      });
+
+        const tabId = tabs[0].id;
+
+        // Inject content script dynamically
+        await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          files: ['content.js']
+        });
+
+        // Now send message to get page text
+        chrome.tabs.sendMessage(tabId, { action: 'GET_PAGE_TEXT' }, (response) => {
+          if (chrome.runtime.lastError) {
+            resolve({ 
+              success: false, 
+              error: chrome.runtime.lastError.message 
+            });
+          } else {
+            resolve(response || { success: false, error: 'No response from content script' });
+          }
+        });
+      } catch (error) {
+        resolve({ success: false, error: error.message });
+      }
     });
   }
 
