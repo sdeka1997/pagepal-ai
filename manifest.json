@@ -1,11 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "PagePalAI",
+  "name": "PagePal AI",
   "description": "PagePal AI helps you learn from any webpage by using the full page context to answer your questions, generate summaries, and explain complex topics. Powered by GPT, it extracts visible text from the page you're on, sends it securely to the model, and gives you fast, grounded answers right inside your browser.",
   "version": "0.2",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "PagePalAI"
+    "default_title": "PagePal AI",
+    "default_icon": "icon.svg"
+  },
+  "icons": {
+    "128": "icon.svg"
   },
   "permissions": ["activeTab", "scripting", "storage"],
   "content_scripts": [
