@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PagePalAI</title>
+  <style>
+    body {
+      width: 400px;
+      min-height: 300px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e1e5e9;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 600;
+      color: #3c4043;
+    }
+
+    .tagline {
+      font-size: 11px;
+      font-style: italic;
+      color: #5f6368;
+      margin-top: 2px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 500;
+      color: #3c4043;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 8px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 1px #1a73e8;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      background: white;
+      box-sizing: border-box;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 1px #1a73e8;
+    }
+
+    .button {
+      width: 100%;
+      padding: 10px 24px;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .button:hover:not(:disabled) {
+      background: #1557b0;
+    }
+
+    .button:disabled {
+      background: #dadce0;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin: 12px 0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: none;
+    }
+
+    .status.error {
+      background: #fce8e6;
+      color: #d93025;
+      border: 1px solid #f28b82;
+    }
+
+    .status.success {
+      background: #e6f4ea;
+      color: #137333;
+      border: 1px solid #81c995;
+    }
+
+    .status.info {
+      background: #e8f0fe;
+      color: #1967d2;
+      border: 1px solid #aecbfa;
+    }
+
+    .answer {
+      margin-top: 16px;
+      padding: 12px;
+      background: #f8f9fa;
+      border: 1px solid #e8eaed;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      line-height: 1.4;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .spinner {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #1a73e8;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 8px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .header {
+      justify-content: space-between;
+    }
+
+    .settings-btn {
+      background: none;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    .settings-btn:hover {
+      background: #f1f3f4;
+    }
+
+    .settings-section {
+      display: none;
+    }
+
+    .settings-section h3 {
+      margin: 0 0 12px 0;
+      color: #3c4043;
+      font-size: 16px;
+    }
+
+    .settings-info {
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #5f6368;
+      line-height: 1.4;
+    }
+
+    .settings-info a {
+      color: #1a73e8;
+      text-decoration: none;
+    }
+
+    .settings-info a:hover {
+      text-decoration: underline;
+    }
+
+    .api-key-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+
+    .api-key-input:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 1px #1a73e8;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">
+      <div class="logo-text">PagePalAI</div>
+      <div class="tagline">Your study buddy for the web</div>
+    </div>
+    <button type="button" id="settingsBtn" class="settings-btn" title="Settings">⚙️</button>
+  </div>
+
+  <!-- Settings Section -->
+  <div id="settingsSection" class="settings-section">
+    <h3>OpenAI API Key Setup</h3>
+    <p class="settings-info">
+      Enter your OpenAI API key to use PagePalAI. Your key is stored locally and never shared.
+      <a href="https://platform.openai.com/api-keys" target="_blank">Get your API key here</a>
+    </p>
+    
+    <div class="form-group">
+      <label for="apiKey">API Key:</label>
+      <input 
+        type="password" 
+        id="apiKey" 
+        placeholder="sk-..."
+        class="api-key-input"
+      >
+    </div>
+    
+    <button type="button" id="saveKeyBtn" class="button">
+      Save API Key
+    </button>
+  </div>
+
+  <!-- Main Interface -->
+  <div id="mainSection">
+    <form id="questionForm">
+    <div class="form-group">
+      <label for="question">Ask a question about this page:</label>
+      <textarea 
+        id="question" 
+        placeholder="What is this page about?"
+        required
+      ></textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="model">Model:</label>
+      <select id="model">
+        <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
+        <option value="gpt-4o">GPT-4o (Balanced)</option>
+        <option value="gpt-4-turbo">GPT-4 Turbo (Advanced)</option>
+      </select>
+    </div>
+
+    <button type="submit" class="button" id="submitBtn">
+      Ask Question
+    </button>
+    </form>
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <div>Processing your question...</div>
+  </div>
+
+  <div id="answer" class="answer"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
