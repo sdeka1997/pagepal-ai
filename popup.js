@@ -646,18 +646,20 @@ class PagePalAIPopup {
       
       let answer;
       let estimatedCost = 0;
+      let combinedVisualData = null;
       
       if (this.isVisualMode(extractionMode)) {
-        // Calculate cost for visual mode
+        // Send question with visual data (current page + session accumulated visuals)
+        combinedVisualData = this.buildCombinedVisualData(pageData.data);
+        
+        // Calculate cost for visual mode using combined screenshot count
         const visionModel = isGemini ? 'gemini-1.5-vision' : 'gpt-4o-vision';
         const inputText = `Question: ${question}\nPage: ${pageData.data.pageInfo.title}${sessionContext}`;
-        estimatedCost = this.calculateCost(visionModel, inputText, '', pageData.data.viewports.length);
-        
-        // Send question with visual data
+        estimatedCost = this.calculateCost(visionModel, inputText, '', combinedVisualData.viewports.length);
         if (isGemini) {
-          answer = await this.geminiProvider.askVisionQuestion(question, pageData.data, selectedModel, apiKey, sessionContext);
+          answer = await this.geminiProvider.askVisionQuestion(question, combinedVisualData, selectedModel, apiKey, sessionContext);
         } else {
-          answer = await this.askQuestionWithVisual(question, pageData.data, selectedModel, apiKey, sessionContext);
+          answer = await this.askQuestionWithVisual(question, combinedVisualData, selectedModel, apiKey, sessionContext);
         }
       } else {
         // Calculate cost for text mode
@@ -675,7 +677,7 @@ class PagePalAIPopup {
       // Update cost with actual answer length and show result
       if (this.isVisualMode(extractionMode)) {
         const finalInputText = `Question: ${question}\nPage: ${pageData.data.pageInfo.title}${sessionContext}`;
-        estimatedCost = this.calculateCost(isGemini ? 'gemini-1.5-vision' : 'gpt-4o-vision', finalInputText, answer, pageData.data.viewports.length);
+        estimatedCost = this.calculateCost(isGemini ? 'gemini-1.5-vision' : 'gpt-4o-vision', finalInputText, answer, combinedVisualData.viewports.length);
       } else {
         const finalInputText = `Question: ${question}\nContext: ${pageData.text}${sessionContext}`;
         estimatedCost = this.calculateCost(selectedModel, finalInputText, answer);
@@ -1265,6 +1267,37 @@ class PagePalAIPopup {
     } catch (error) {
       console.error('Error saving session data:', error);
     }
+  }
+
+  buildCombinedVisualData(currentPageData) {
+    // Start with current page data
+    let combinedData = {
+      viewports: [...currentPageData.viewports],
+      pageInfo: {
+        title: 'Combined Session Data',
+        url: currentPageData.pageInfo.url,
+        totalHeight: currentPageData.pageInfo.totalHeight
+      }
+    };
+
+    // Add visual data from previous pages in study session
+    if (this.studySession && this.studySession.active) {
+      this.studySession.pages.forEach((page, index) => {
+        if (this.isVisualMode(page.extractionMode) && page.content.data?.viewports) {
+          // Add session page screenshots with page context
+          page.content.data.viewports.forEach(viewport => {
+            combinedData.viewports.push({
+              ...viewport,
+              pageTitle: page.title,
+              pageUrl: page.url,
+              sessionPageIndex: index + 1
+            });
+          });
+        }
+      });
+    }
+
+    return combinedData;
   }
 
   buildSessionContext() {
