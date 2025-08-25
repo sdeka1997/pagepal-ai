@@ -320,6 +320,152 @@
       border-color: var(--button-bg);
       box-shadow: 0 0 0 1px var(--button-bg);
     }
+
+    .cost-info {
+      margin: 12px 0;
+      padding: 8px 12px;
+      background: var(--answer-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .cost-estimate, .cost-cumulative {
+      display: flex;
+      justify-content: space-between;
+      margin: 2px 0;
+    }
+
+    .cost-label {
+      color: var(--text-secondary);
+    }
+
+    .cost-value {
+      font-weight: 500;
+      color: var(--text-color);
+    }
+
+    .session-controls {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: var(--answer-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+
+    .session-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .start-session {
+      background: var(--button-bg);
+      color: white;
+      width: 100%;
+    }
+
+    .start-session:hover {
+      background: var(--button-hover);
+    }
+
+    .active-session {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .session-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .session-status {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-color);
+    }
+
+    .session-pages {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .end-session {
+      background: var(--border-color);
+      color: var(--text-color);
+      font-size: 11px;
+      padding: 6px 12px;
+    }
+
+    .end-session:hover {
+      background: var(--settings-hover);
+    }
+
+    .session-subtitle {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-top: 12px;
+      line-height: 1.3;
+    }
+
+    .plan-toggle {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .toggle-option {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      transition: all 0.2s;
+      flex: 1;
+    }
+
+    .toggle-option:hover {
+      background: var(--settings-hover);
+    }
+
+    .toggle-option input[type="radio"] {
+      margin: 0;
+      margin-right: 6px;
+    }
+
+    .toggle-option input[type="radio"]:checked + .toggle-label {
+      font-weight: 600;
+      color: var(--button-bg);
+    }
+
+    .toggle-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      transition: color 0.2s;
+    }
+
+    .question-section {
+      margin-top: 16px;
+    }
+    
+    /* Gray box styling for casual-mode-options */
+    .casual-mode-options {
+      background-color: var(--settings-hover);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-secondary);
+      margin-bottom: 16px;
+    }
   </style>
 </head>
 <body>
@@ -336,57 +482,147 @@
     <div class="header-controls">
       <button type="button" id="themeToggle" class="theme-btn" title="Toggle dark/light mode">🌙</button>
       <button type="button" id="settingsBtn" class="settings-btn" title="Settings">⚙️</button>
+      <button type="button" id="backToMainBtn" class="settings-btn" title="Back to Main" style="display: none;">💾</button>
     </div>
   </div>
 
   <!-- Settings Section -->
   <div id="settingsSection" class="settings-section">
-    <h3>OpenAI API Key Setup</h3>
+    <h3>API Key Setup</h3>
     <p class="settings-info">
-      Enter your OpenAI API key to use PagePal AI. Your key is stored locally and never shared.
-      <a href="https://platform.openai.com/api-keys" target="_blank">Get your API key here</a>
+      Choose your preferred AI provider and enter your API key. Keys are stored locally and never shared.
     </p>
-    
+
     <div class="form-group">
-      <label for="apiKey">API Key:</label>
-      <input 
-        type="password" 
-        id="apiKey" 
-        placeholder="sk-..."
-        class="api-key-input"
-      >
+      <label for="apiProvider">API Provider:</label>
+      <select id="apiProvider">
+        <option value="gemini" selected>Google Gemini (Free tier available)</option>
+        <option value="openai">OpenAI (GPT models)</option>
+      </select>
+    </div>
+    
+    <div id="geminiSettings" class="provider-settings">
+      <p class="settings-info">
+        <a href="https://aistudio.google.com/app/apikey" target="_blank">Get your Gemini API key here</a>
+        (Free tier: 15 requests/minute, 1M requests/day)
+      </p>
+      <div class="form-group">
+        <label for="geminiApiKey">Gemini API Key:</label>
+        <input 
+          type="password" 
+          id="geminiApiKey" 
+          placeholder="AIza..."
+          class="api-key-input"
+        >
+      </div>
+    </div>
+
+    <div id="openaiSettings" class="provider-settings" style="display: none;">
+      <p class="settings-info">
+        <a href="https://platform.openai.com/api-keys" target="_blank">Get your OpenAI API key here</a>
+      </p>
+      <div class="form-group">
+        <label for="openaiApiKey">OpenAI API Key:</label>
+        <input 
+          type="password" 
+          id="openaiApiKey" 
+          placeholder="sk-..."
+          class="api-key-input"
+        >
+      </div>
     </div>
     
     <button type="button" id="saveKeyBtn" class="button">
       Save API Key
     </button>
+
+    <div class="form-group" style="margin-top: 16px;">
+      <button type="button" id="resetCostBtn" class="button" style="background: var(--border-color); color: var(--text-color);">
+        Reset Cost Tracker
+      </button>
+    </div>
+    
+    <div class="form-group" style="margin-top: 8px;">
+      <button type="button" id="resetAllDataBtn" class="button" style="background: #dc3545; color: white;">
+        🗑️ Reset All Data
+      </button>
+    </div>
+    
   </div>
 
   <!-- Main Interface -->
   <div id="mainSection">
-    <form id="questionForm">
-    <div class="form-group">
-      <label for="question">Ask a question about this page:</label>
-      <textarea 
-        id="question" 
-        placeholder="What is this page about?"
-        required
-      ></textarea>
+    <!-- Study Session Controls -->
+    <div id="sessionControls" class="session-controls">
+      <button type="button" id="startSessionBtn" class="session-btn start-session">
+        📚 Start Study Session
+      </button>
+      <div id="activeSession" class="active-session" style="display: none;">
+        <div class="session-info">
+          <span class="session-status">📚 Study Session Active</span>
+          <span id="sessionPages" class="session-pages">0 pages</span>
+        </div>
+        <button type="button" id="endSessionBtn" class="session-btn end-session">
+          End Session
+        </button>
+      </div>
+      <div class="session-subtitle">All scanned context will persist until the end of the session</div>
     </div>
 
-    <div class="form-group">
-      <label for="model">Model:</label>
-      <select id="model">
-        <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
-        <option value="gpt-4o">GPT-4o (Balanced)</option>
-        <option value="gpt-4-turbo">GPT-4 Turbo (Advanced)</option>
-      </select>
-    </div>
+    <!-- Unified Question Section -->
+    <div id="questionSection" class="question-section">
+      <!-- Content Analysis - Always visible, with scan button appearing during study sessions -->
+      <div id="casualModeOptions" class="casual-mode-options">
+        <div class="form-group">
+          <label for="extractionMode2">Content Analysis:</label>
+          <select id="extractionMode2">
+            <option value="structured">Smart Structure (Preserves headings, lists, tables)</option>
+            <option value="simple">Simple Text (Faster, basic extraction)</option>
+            <option value="visual_current_viewport">Visual Screenshot - Current Viewport (Fast)</option>
+            <option value="visual_auto_scroll">Visual Screenshot - Full Page Scroll (Comprehensive)</option>
+          </select>
+        </div>
 
-    <button type="submit" class="button" id="submitBtn">
-      Ask Question
-    </button>
-    </form>
+
+        <!-- Scan button - Only visible during study sessions -->
+        <button type="button" class="button" id="scanPageBtn" style="display: none;">
+          Scan Documents
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label for="planType">Plan Type:</label>
+        <div class="plan-toggle">
+          <label class="toggle-option">
+            <input type="radio" name="planType" value="free" id="freePlan" checked>
+            <span class="toggle-label">🆓 Free Models Only</span>
+          </label>
+          <label class="toggle-option">
+            <input type="radio" name="planType" value="paid" id="paidPlan">
+            <span class="toggle-label">💳 All Models (Paid)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="model">Model:</label>
+        <select id="model">
+          <!-- Models will be populated by JavaScript based on plan type -->
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="question">Ask a question:</label>
+        <textarea 
+          id="question" 
+          placeholder="What is this page about?"
+        ></textarea>
+      </div>
+
+      <button type="button" class="button" id="askQuestionBtn">
+        Ask Question
+      </button>
+    </div>
   </div>
 
   <div id="status" class="status"></div>
@@ -398,6 +634,17 @@
 
   <div id="answer" class="answer"></div>
 
-  <script src="popup.js"></script>
+  <div id="costInfo" class="cost-info" style="display: none;">
+    <div class="cost-estimate">
+      <span class="cost-label">Estimated cost:</span>
+      <span id="estimatedCost" class="cost-value">$0.00</span>
+    </div>
+    <div class="cost-cumulative">
+      <span class="cost-label">Total usage:</span>
+      <span id="cumulativeCost" class="cost-value">$0.00</span>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
 </body>
 </html>
