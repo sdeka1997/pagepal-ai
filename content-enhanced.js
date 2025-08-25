@@ -478,34 +478,19 @@ function formatStructuredContent(structuredData) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'GET_PAGE_TEXT') {
     try {
-      const extractionMode = request.mode || 'structured'; // 'structured' or 'simple'
+      // Always use structured extraction
+      const structuredData = extractStructuredContent();
+      const formattedText = formatStructuredContent(structuredData);
       
-      let result;
-      if (extractionMode === 'structured') {
-        const structuredData = extractStructuredContent();
-        const formattedText = formatStructuredContent(structuredData);
-        
-        result = {
-          success: true,
-          text: formattedText,
-          structuredData: structuredData,
-          mode: 'structured',
-          length: formattedText.length,
-          url: window.location.href,
-          title: document.title
-        };
-      } else {
-        // Fallback to simple extraction
-        const simpleText = extractSimpleText();
-        result = {
-          success: true,
-          text: simpleText,
-          mode: 'simple',
-          length: simpleText.length,
-          url: window.location.href,
-          title: document.title
-        };
-      }
+      const result = {
+        success: true,
+        text: formattedText,
+        structuredData: structuredData,
+        mode: 'structured',
+        length: formattedText.length,
+        url: window.location.href,
+        title: document.title
+      };
       
       sendResponse(result);
     } catch (error) {
@@ -519,43 +504,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true; // Keep message channel open for async response
 });
 
-/**
- * Simple text extraction (fallback)
- */
-function extractSimpleText() {
-  // Fallback to original simple extraction if needed
-  const excludeSelectors = [
-    'nav', 'header', 'footer', 'aside', 
-    '.nav', '.navbar', '.navigation', '.header', '.footer', '.sidebar',
-    '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
-    'script', 'style', 'noscript', 'meta', 'link'
-  ];
-
-  const doc = document.cloneNode(true);
-  
-  excludeSelectors.forEach(selector => {
-    const elements = doc.querySelectorAll(selector);
-    elements.forEach(el => el.remove());
-  });
-
-  const mainSelectors = ['main', '[role="main"]', '.main-content', '#main', '.content'];
-  let textContent = '';
-
-  for (const selector of mainSelectors) {
-    const mainElement = doc.querySelector(selector);
-    if (mainElement) {
-      textContent = mainElement.innerText || mainElement.textContent || '';
-      break;
-    }
-  }
-
-  if (!textContent.trim()) {
-    textContent = doc.body?.innerText || doc.body?.textContent || '';
-  }
-
-  return textContent
-    .replace(/\s+/g, ' ')
-    .replace(/\n\s*\n/g, '\n')
-    .trim();
-}
 

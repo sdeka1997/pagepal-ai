@@ -550,7 +550,7 @@ class PagePalAIPopup {
           : `${pageData.data.viewports.length} viewport screenshots`;
         this.showStatus(`✓ Page scanned: captured ${modeText}`, 'success');
       } else {
-        const modeText = pageData.mode === 'structured' ? 'structured content' : 'simple text';
+        const modeText = 'structured content';
         this.showStatus(`✓ Page scanned: extracted ${pageData.length} characters of ${modeText}`, 'success');
       }
 
