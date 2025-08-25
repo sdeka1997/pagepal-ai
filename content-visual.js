@@ -1,7 +1,13 @@
 // PagePal AI Visual Content Script - Progressive viewport tracking and screenshot composition
 
-// Import constants
-import { CONFIG } from './constants.js';
+// Inline constants for content script (to avoid ES6 import issues in manifest registration)
+const CONFIG = {
+  CAPTURE_THRESHOLD: 100, // pixels to scroll before new capture
+  VIEWPORT_OVERLAP: 0.8, // 80% overlap for auto-scroll
+  SCREENSHOT_WAIT: 500, // ms to wait between captures
+  LAZY_LOADING_WAIT: 200, // ms to wait for lazy images
+  LAZY_CONTENT_TIMEOUT: 1000 // ms timeout for lazy content loading
+};
 
 class ProgressiveViewportTracker {
   constructor() {
