@@ -297,6 +297,10 @@ class PagePalAIPopup {
     // Initialize button states (Ask Question starts disabled)
     this.updateButtonStates();
     
+    // Initialize UI based on feature flags and session status
+    this.updateUIForSessionStatus();
+    this.updateCacheMemoryUI();
+    
     // Save model preference when changed
     this.modelSelect.addEventListener('change', () => this.saveModelPreference());
   }
@@ -492,22 +496,30 @@ class PagePalAIPopup {
   updateUIForSessionStatus() {
     const isStudySessionActive = this.studySession && this.studySession.active;
     
+    // Always use the same feature flag for content analysis section visibility
+    this.casualModeOptions.style.display = CONFIG.ENABLE_CONTENT_ANALYSIS_DROPDOWN ? 'block' : 'none';
+    
     if (isStudySessionActive) {
-      // Study session mode: Show scan button inside gray box
+      // Cached memory mode: Show scan button
       this.scanPageBtn.style.display = 'block';
-      this.casualModeOptions.style.display = 'block'; // Keep gray box visible
       this.questionSection.classList.add('study-session-mode');
       document.body.classList.add('study-session-active');
     } else {
-      // Casual mode: Hide scan button, keep gray box
+      // Normal mode: Hide scan button
       this.scanPageBtn.style.display = 'none';
-      this.casualModeOptions.style.display = 'block';
       this.questionSection.classList.remove('study-session-mode');
       document.body.classList.remove('study-session-active');
     }
     
     // Update button states
     this.updateButtonStates();
+  }
+
+  updateCacheMemoryUI() {
+    const sessionControls = document.getElementById('sessionControls');
+    if (sessionControls) {
+      sessionControls.style.display = CONFIG.ENABLE_CACHE_MEMORY_MODE ? 'block' : 'none';
+    }
   }
 
   showMainInterface() {

@@ -1,6 +1,10 @@
 // PagePal AI - Application Constants
 
 export const CONFIG = {
+  // Feature flags
+  ENABLE_CONTENT_ANALYSIS_DROPDOWN: false, // Global flag to show/hide content analysis options
+  ENABLE_CACHE_MEMORY_MODE: false, // Flag to enable/disable cache memory mode functionality
+  
   // Content extraction
   CACHE_DURATION: 30000, // 30 seconds
   MAX_CONTEXT_LENGTH: 12000,
