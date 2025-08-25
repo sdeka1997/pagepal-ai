@@ -618,8 +618,19 @@ class PagePalAIPopup {
 
     // Check if we have scanned content to use (after potential auto-scan)
     if (!this.scannedContent) {
-      this.showStatus('Please scan the page first before asking questions.', 'error');
-      return;
+      // In study sessions, try to use the most recent page from session
+      if (this.studySession && this.studySession.active && this.studySession.pages.length > 0) {
+        // Use the most recent page from the session
+        const mostRecentPage = this.studySession.pages[this.studySession.pages.length - 1];
+        this.scannedContent = {
+          data: mostRecentPage.content,
+          extractionMode: mostRecentPage.extractionMode,
+          timestamp: Date.now()
+        };
+      } else {
+        this.showStatus('Please scan the page first before asking questions.', 'error');
+        return;
+      }
     }
 
     // Check if appropriate API key is configured
