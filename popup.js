@@ -1001,12 +1001,8 @@ class PagePalAIPopup {
       }
     });
     
-    // Update cost info visibility - only hide if free AND no cumulative cost
-    if (isFree && this.cumulativeCost === 0) {
-      this.hideCostInfo();
-    } else if (this.cumulativeCost > 0) {
-      this.costInfo.style.display = 'block';
-    }
+    // Cost info is always visible now
+    this.costInfo.style.display = 'block';
   }
 
   // AI model pricing (as of current rates)
@@ -1064,11 +1060,6 @@ class PagePalAIPopup {
   }
 
   async showCostInfo(estimatedCost) {
-    // Don't show cost info in free mode
-    if (this.freePlanRadio.checked) {
-      return;
-    }
-    
     this.cumulativeCost += estimatedCost;
     
     // Show "FREE" for zero costs (Gemini free tier)
@@ -1097,7 +1088,6 @@ class PagePalAIPopup {
     this.cumulativeCost = 0;
     this.cumulativeCostSpan.textContent = '$0.00';
     this.estimatedCostSpan.textContent = '$0.00';
-    this.hideCostInfo();
     
     try {
       await chrome.storage.sync.set({ cumulativeCost: 0 });
@@ -1150,7 +1140,6 @@ class PagePalAIPopup {
       // Reset UI elements immediately
       this.updateSessionUI();
       this.updateButtonStates();
-      this.hideCostInfo();
       this.hideAnswer();
       this.hideStatus();
       
