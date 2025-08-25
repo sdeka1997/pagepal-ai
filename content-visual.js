@@ -57,16 +57,20 @@ class ProgressiveViewportTracker {
 
   async captureCurrentViewport() {
     try {
+      console.log('PagePal AI: captureCurrentViewport called');
       const scrollY = window.scrollY;
       
       // Skip if we already have this viewport
       if (this.viewportHistory.has(scrollY)) {
+        console.log('PagePal AI: Viewport already captured, skipping');
         return;
       }
 
+      console.log('PagePal AI: Waiting for lazy content to load');
       // Wait a moment for lazy content to load
       await this.waitForLazyContent();
 
+      console.log('PagePal AI: Capturing screenshot');
       // Capture screenshot using chrome.tabs.captureVisibleTab
       const screenshot = await this.captureScreenshot();
       
@@ -118,14 +122,16 @@ class ProgressiveViewportTracker {
 
   async captureScreenshot() {
     return new Promise((resolve) => {
+      console.log('PagePal AI: Sending CAPTURE_SCREENSHOT message to background');
       // Send message to background script to capture screenshot
       chrome.runtime.sendMessage(
         { action: 'CAPTURE_SCREENSHOT' },
         (response) => {
           if (chrome.runtime.lastError) {
-            console.error('Screenshot capture error:', chrome.runtime.lastError);
+            console.error('PagePal AI: Screenshot capture error:', chrome.runtime.lastError);
             resolve(null);
           } else {
+            console.log('PagePal AI: Screenshot response received:', response ? 'success' : 'no response');
             resolve(response?.screenshot || null);
           }
         }
@@ -208,6 +214,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleVisualRequest(request, sendResponse) {
+  console.log('PagePal AI: Handling visual request with mode:', request.mode);
+  
   try {
     const mode = request.mode || 'auto_scroll'; // 'auto_scroll', 'tracked', or 'current_viewport'
     
@@ -225,9 +233,11 @@ async function handleVisualRequest(request, sendResponse) {
         title: document.title
       });
     } else if (mode === 'current_viewport') {
+      console.log('PagePal AI: Starting current viewport capture');
       // Capture only the current viewport (fast for study sessions)
       const tracker = new ProgressiveViewportTracker();
       await tracker.captureCurrentViewport();
+      console.log('PagePal AI: Current viewport captured, generating composite');
       const compositeData = await tracker.generateCompositeImage();
       
       sendResponse({
