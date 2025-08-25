@@ -705,27 +705,40 @@ class PagePalAIPopup {
         const tabId = tabs[0].id;
 
         if (this.isVisualMode(extractionMode)) {
-          // Inject visual content script
-          await chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ['content-visual.js']
-          });
-
-          // Use the visual mode from extraction mode
+          // Use the visual mode from extraction mode (content script already loaded via manifest)
           const visualMode = this.getVisualModeFromExtraction(extractionMode);
 
-          // Send message for visual extraction
+          // Send message for visual extraction with timeout
+          let isResolved = false;
+          
+          // Auto-scroll needs more time than current viewport
+          const timeoutDuration = visualMode === 'auto_scroll' ? 30000 : 10000; // 30s for auto-scroll, 10s for current viewport
+          
+          const messageTimeout = setTimeout(() => {
+            if (!isResolved) {
+              isResolved = true;
+              resolve({ 
+                success: false, 
+                error: `Visual mode timed out after ${timeoutDuration/1000} seconds` 
+              });
+            }
+          }, timeoutDuration);
+
           chrome.tabs.sendMessage(tabId, { 
             action: 'GET_PAGE_VISUAL',
             mode: visualMode
           }, (response) => {
-            if (chrome.runtime.lastError) {
-              resolve({ 
-                success: false, 
-                error: chrome.runtime.lastError.message 
-              });
-            } else {
-              resolve(response || { success: false, error: 'No response from content script' });
+            clearTimeout(messageTimeout);
+            if (!isResolved) {
+              isResolved = true;
+              if (chrome.runtime.lastError) {
+                resolve({ 
+                  success: false, 
+                  error: chrome.runtime.lastError.message 
+                });
+              } else {
+                resolve(response || { success: false, error: 'No response from content script' });
+              }
             }
           });
         } else {

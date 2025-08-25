@@ -1,312 +1,125 @@
-// PagePal AI Visual Content Script - Progressive viewport tracking and screenshot composition
-
-// Inline constants for content script (to avoid ES6 import issues in manifest registration)
-const CONFIG = {
-  CAPTURE_THRESHOLD: 100, // pixels to scroll before new capture
-  VIEWPORT_OVERLAP: 0.8, // 80% overlap for auto-scroll
-  SCREENSHOT_WAIT: 500, // ms to wait between captures
-  LAZY_LOADING_WAIT: 200, // ms to wait for lazy images
-  LAZY_CONTENT_TIMEOUT: 1000 // ms timeout for lazy content loading
-};
-
-class ProgressiveViewportTracker {
-  constructor() {
-    this.viewportHistory = new Map(); // scrollY -> screenshot data
-    this.isTracking = false;
-    this.lastScrollY = 0;
-    this.captureThreshold = CONFIG.CAPTURE_THRESHOLD;
-    this.maxViewportHeight = window.innerHeight;
-    this.pageHeight = Math.max(
-      document.body.scrollHeight,
-      document.body.offsetHeight,
-      document.documentElement.clientHeight,
-      document.documentElement.scrollHeight,
-      document.documentElement.offsetHeight
-    );
-  }
-
-  async startTracking() {
-    this.isTracking = true;
-    
-    // Capture initial viewport
-    await this.captureCurrentViewport();
-    
-    // Set up scroll listener
-    window.addEventListener('scroll', this.handleScroll.bind(this), { passive: true });
-    
-    return true;
-  }
-
-  stopTracking() {
-    this.isTracking = false;
-    window.removeEventListener('scroll', this.handleScroll.bind(this));
-  }
-
-  handleScroll = async () => {
-    if (!this.isTracking) return;
-    
-    const currentScrollY = window.scrollY;
-    const scrollDiff = Math.abs(currentScrollY - this.lastScrollY);
-    
-    // Only capture if we've scrolled enough
-    if (scrollDiff >= this.captureThreshold) {
-      await this.captureCurrentViewport();
-      this.lastScrollY = currentScrollY;
-    }
-  }
-
-  async captureCurrentViewport() {
-    try {
-      console.log('PagePal AI: captureCurrentViewport called');
-      const scrollY = window.scrollY;
-      
-      // Skip if we already have this viewport
-      if (this.viewportHistory.has(scrollY)) {
-        console.log('PagePal AI: Viewport already captured, skipping');
-        return;
-      }
-
-      console.log('PagePal AI: Waiting for lazy content to load');
-      // Wait a moment for lazy content to load
-      await this.waitForLazyContent();
-
-      console.log('PagePal AI: Capturing screenshot');
-      // Capture screenshot using chrome.tabs.captureVisibleTab
-      const screenshot = await this.captureScreenshot();
-      
-      if (screenshot) {
-        this.viewportHistory.set(scrollY, {
-          screenshot: screenshot,
-          timestamp: Date.now(),
-          scrollY: scrollY,
-          viewportHeight: window.innerHeight
-        });
-        
-      }
-    } catch (error) {
-      console.error('PagePal AI: Error capturing viewport:', error);
-    }
-  }
-
-  async waitForLazyContent(timeout = CONFIG.LAZY_CONTENT_TIMEOUT) {
-    // Wait for potential lazy loading
-    return new Promise(resolve => {
-      let imagesLoaded = 0;
-      const images = document.querySelectorAll('img[loading="lazy"], img[data-src]');
-      
-      if (images.length === 0) {
-        setTimeout(resolve, CONFIG.LAZY_LOADING_WAIT); // Short wait even if no lazy images
-        return;
-      }
-
-      const checkComplete = () => {
-        imagesLoaded++;
-        if (imagesLoaded >= images.length) {
-          resolve();
-        }
-      };
-
-      images.forEach(img => {
-        if (img.complete) {
-          checkComplete();
-        } else {
-          img.addEventListener('load', checkComplete, { once: true });
-          img.addEventListener('error', checkComplete, { once: true });
-        }
-      });
-
-      // Timeout fallback
-      setTimeout(resolve, timeout);
-    });
-  }
-
-  async captureScreenshot() {
-    return new Promise((resolve) => {
-      console.log('PagePal AI: Sending CAPTURE_SCREENSHOT message to background');
-      // Send message to background script to capture screenshot
-      chrome.runtime.sendMessage(
-        { action: 'CAPTURE_SCREENSHOT' },
-        (response) => {
-          if (chrome.runtime.lastError) {
-            console.error('PagePal AI: Screenshot capture error:', chrome.runtime.lastError);
-            resolve(null);
-          } else {
-            console.log('PagePal AI: Screenshot response received:', response ? 'success' : 'no response');
-            resolve(response?.screenshot || null);
-          }
-        }
-      );
-    });
-  }
-
-  async generateCompositeImage() {
-    if (this.viewportHistory.size === 0) {
-      throw new Error('No viewport data captured');
-    }
-
-
-    // Sort viewports by scroll position
-    const sortedViewports = Array.from(this.viewportHistory.entries())
-      .sort(([a], [b]) => a - b);
-
-    // For now, return the data for composition in background script
-    // The actual image stitching would happen in background script or popup
-    return {
-      viewports: sortedViewports.map(([scrollY, data]) => ({
-        scrollY,
-        screenshot: data.screenshot,
-        viewportHeight: data.viewportHeight
-      })),
-      pageInfo: {
-        totalHeight: this.pageHeight,
-        viewportHeight: this.maxViewportHeight,
-        title: document.title,
-        url: window.location.href
-      }
-    };
-  }
-
-  async autoScrollAndCapture() {
-    // Start from top
-    window.scrollTo(0, 0);
-    await this.captureCurrentViewport();
-
-    const scrollStep = Math.floor(window.innerHeight * CONFIG.VIEWPORT_OVERLAP);
-    let currentScroll = 0;
-
-    while (currentScroll < this.pageHeight) {
-      currentScroll += scrollStep;
-      window.scrollTo(0, Math.min(currentScroll, this.pageHeight - window.innerHeight));
-      
-      // Wait for scroll and lazy content
-      await new Promise(resolve => setTimeout(resolve, CONFIG.SCREENSHOT_WAIT));
-      await this.waitForLazyContent();
-      await this.captureCurrentViewport();
-
-      // Break if we've reached the bottom
-      if (window.scrollY + window.innerHeight >= this.pageHeight) {
-        break;
-      }
-    }
-
-    return this.generateCompositeImage();
-  }
-}
-
-// Global tracker instance
-let viewportTracker = null;
-
-// Message listener
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+// Safari compatible visual script with auto-scroll
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === 'GET_PAGE_VISUAL') {
-    handleVisualRequest(request, sendResponse);
-    return true; // Keep message channel open
-  } else if (request.action === 'START_VIEWPORT_TRACKING') {
-    startViewportTracking(sendResponse);
-    return true;
-  } else if (request.action === 'STOP_VIEWPORT_TRACKING') {
-    stopViewportTracking(sendResponse);
-    return true;
-  } else if (request.action === 'GET_COMPOSITE_IMAGE') {
-    getCompositeImage(sendResponse);
+    var mode = request.mode || 'current_viewport';
+    
+    if (mode === 'current_viewport') {
+      // Single screenshot of current viewport
+      captureCurrentViewport(sendResponse);
+    } else if (mode === 'auto_scroll') {
+      // Auto-scroll through entire page
+      captureFullPageScroll(sendResponse);
+    } else {
+      sendResponse({
+        success: false,
+        error: 'Unsupported mode: ' + mode
+      });
+    }
     return true;
   }
 });
 
-async function handleVisualRequest(request, sendResponse) {
-  console.log('PagePal AI: Handling visual request with mode:', request.mode);
+function captureCurrentViewport(sendResponse) {
+  chrome.runtime.sendMessage(
+    { action: 'CAPTURE_SCREENSHOT' },
+    function(response) {
+      if (chrome.runtime.lastError) {
+        sendResponse({
+          success: false,
+          error: 'Screenshot failed: ' + chrome.runtime.lastError.message
+        });
+      } else if (!response || !response.screenshot) {
+        sendResponse({
+          success: false,
+          error: 'No screenshot received from background'
+        });
+      } else {
+        sendResponse({
+          success: true,
+          type: 'visual',
+          mode: 'current_viewport',
+          data: {
+            viewports: [{
+              scrollY: window.scrollY,
+              screenshot: response.screenshot,
+              viewportHeight: window.innerHeight
+            }],
+            pageInfo: {
+              title: document.title,
+              url: window.location.href,
+              totalHeight: getPageHeight()
+            }
+          }
+        });
+      }
+    }
+  );
+}
+
+function captureFullPageScroll(sendResponse) {
+  var pageHeight = getPageHeight();
+  var viewportHeight = window.innerHeight;
+  var scrollStep = Math.floor(viewportHeight * 0.8); // 80% overlap
+  var screenshots = [];
+  var currentScroll = 0;
   
-  try {
-    const mode = request.mode || 'auto_scroll'; // 'auto_scroll', 'tracked', or 'current_viewport'
-    
-    if (mode === 'auto_scroll') {
-      // Create new tracker and auto-capture entire page
-      const tracker = new ProgressiveViewportTracker();
-      const compositeData = await tracker.autoScrollAndCapture();
-      
-      sendResponse({
-        success: true,
-        type: 'visual',
-        mode: 'auto_scroll',
-        data: compositeData,
-        url: window.location.href,
-        title: document.title
-      });
-    } else if (mode === 'current_viewport') {
-      console.log('PagePal AI: Starting current viewport capture');
-      // Capture only the current viewport (fast for study sessions)
-      const tracker = new ProgressiveViewportTracker();
-      await tracker.captureCurrentViewport();
-      console.log('PagePal AI: Current viewport captured, generating composite');
-      const compositeData = await tracker.generateCompositeImage();
-      
-      sendResponse({
-        success: true,
-        type: 'visual',
-        mode: 'current_viewport',
-        data: compositeData,
-        url: window.location.href,
-        title: document.title
-      });
-    } else if (mode === 'tracked' && viewportTracker) {
-      // Use existing tracked viewports
-      const compositeData = await viewportTracker.generateCompositeImage();
-      
-      sendResponse({
-        success: true,
-        type: 'visual',
-        mode: 'tracked',
-        data: compositeData,
-        url: window.location.href,
-        title: document.title
-      });
-    } else {
-      sendResponse({
-        success: false,
-        error: 'No viewport tracking data available'
-      });
-    }
-  } catch (error) {
-    console.error('PagePal AI: Visual request error:', error);
-    sendResponse({
-      success: false,
-      error: error.message
-    });
+  // Start from top
+  window.scrollTo(0, 0);
+  
+  function captureNextViewport() {
+    // Wait a moment for scroll to complete
+    setTimeout(function() {
+      chrome.runtime.sendMessage(
+        { action: 'CAPTURE_SCREENSHOT' },
+        function(response) {
+          if (response && response.screenshot) {
+            screenshots.push({
+              scrollY: window.scrollY,
+              screenshot: response.screenshot,
+              viewportHeight: viewportHeight
+            });
+          }
+          
+          // Move to next scroll position
+          currentScroll += scrollStep;
+          var targetScroll = Math.min(currentScroll, pageHeight - viewportHeight);
+          
+          if (window.scrollY + viewportHeight >= pageHeight - 10 || screenshots.length > 20) {
+            // Done scrolling or safety limit reached
+            sendResponse({
+              success: true,
+              type: 'visual',
+              mode: 'auto_scroll',
+              data: {
+                viewports: screenshots,
+                pageInfo: {
+                  title: document.title,
+                  url: window.location.href,
+                  totalHeight: pageHeight,
+                  viewportHeight: viewportHeight
+                }
+              }
+            });
+          } else {
+            // Continue scrolling
+            window.scrollTo(0, targetScroll);
+            captureNextViewport();
+          }
+        }
+      );
+    }, 500); // Wait 500ms between captures
   }
+  
+  // Start the capture process
+  captureNextViewport();
 }
 
-async function startViewportTracking(sendResponse) {
-  try {
-    if (!viewportTracker) {
-      viewportTracker = new ProgressiveViewportTracker();
-    }
-    
-    await viewportTracker.startTracking();
-    sendResponse({ success: true });
-  } catch (error) {
-    sendResponse({ success: false, error: error.message });
-  }
+function getPageHeight() {
+  return Math.max(
+    document.body.scrollHeight,
+    document.body.offsetHeight,
+    document.documentElement.clientHeight,
+    document.documentElement.scrollHeight,
+    document.documentElement.offsetHeight
+  );
 }
-
-function stopViewportTracking(sendResponse) {
-  if (viewportTracker) {
-    viewportTracker.stopTracking();
-    sendResponse({ success: true });
-  } else {
-    sendResponse({ success: false, error: 'No active tracking' });
-  }
-}
-
-async function getCompositeImage(sendResponse) {
-  try {
-    if (!viewportTracker) {
-      throw new Error('No viewport tracker available');
-    }
-    
-    const compositeData = await viewportTracker.generateCompositeImage();
-    sendResponse({ success: true, data: compositeData });
-  } catch (error) {
-    sendResponse({ success: false, error: error.message });
-  }
-}
-
