@@ -11,26 +11,11 @@ export const CONFIG = {
   DEFAULT_TEMPERATURE: 0.7,
   API_TIMEOUT: 120000, // 2 minutes
   
-  // Visual capture settings
-  CAPTURE_THRESHOLD: 100, // pixels to scroll before new capture
-  VIEWPORT_OVERLAP: 0.8, // 80% overlap for auto-scroll
-  SCREENSHOT_WAIT: 500, // ms to wait between captures
-  LAZY_LOADING_WAIT: 200, // ms to wait for lazy images
-  
-  // UI settings
-  LOADING_DEBOUNCE: 300, // ms
-  AUTO_SAVE_DELAY: 1000, // ms
-  NOTIFICATION_TIMEOUT: 3000, // ms
-  
   // Storage keys
   STORAGE_KEYS: {
     OPENAI_API_KEY: 'openaiApiKey',
     GEMINI_API_KEY: 'geminiApiKey',
-    SELECTED_MODEL: 'selectedModel',
-    EXTRACTION_MODE: 'extractionMode',
-    SESSION_CONTEXT: 'sessionContext',
-    STUDY_MODE: 'studyMode',
-    TOTAL_COST: 'totalCost'
+    SELECTED_MODEL: 'selectedModel'
   },
   
   // DOM selectors
