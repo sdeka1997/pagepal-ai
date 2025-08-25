@@ -837,7 +837,8 @@ class PagePalAIPopup {
 
   updateButtonStates() {
     const isStudySessionActive = this.studySession && this.studySession.active;
-    const hasScannedContent = !!this.scannedContent;
+    // Consider we have content if either we have current scanned content OR there are pages in active session
+    const hasScannedContent = !!this.scannedContent || (isStudySessionActive && this.studySession.pages.length > 0);
     
     if (isStudySessionActive) {
       // Study session mode: Ask Question button disabled until page is scanned
