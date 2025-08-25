@@ -494,7 +494,7 @@ class PagePalAIPopup {
   }
 
   updateUIForSessionStatus() {
-    const isStudySessionActive = this.studySession && this.studySession.active;
+    const isStudySessionActive = CONFIG.ENABLE_CACHE_MEMORY_MODE && this.studySession && this.studySession.active;
     
     // Always use the same feature flag for content analysis section visibility
     this.casualModeOptions.style.display = CONFIG.ENABLE_CONTENT_ANALYSIS_DROPDOWN ? 'block' : 'none';
@@ -615,7 +615,7 @@ class PagePalAIPopup {
       return;
     }
 
-    const isStudySessionActive = this.studySession && this.studySession.active;
+    const isStudySessionActive = CONFIG.ENABLE_CACHE_MEMORY_MODE && this.studySession && this.studySession.active;
 
     // If not in study session, perform auto-scan first
     if (!isStudySessionActive) {
@@ -859,17 +859,18 @@ class PagePalAIPopup {
   }
 
   updateButtonStates() {
-    const isStudySessionActive = this.studySession && this.studySession.active;
+    // Only allow study session behavior if cache memory mode is enabled
+    const isStudySessionActive = CONFIG.ENABLE_CACHE_MEMORY_MODE && this.studySession && this.studySession.active;
     // Consider we have content if either we have current scanned content OR there are pages in active session
     const hasScannedContent = !!this.scannedContent || (isStudySessionActive && this.studySession.pages.length > 0);
     
     if (isStudySessionActive) {
-      // Study session mode: Ask Question button disabled until page is scanned
+      // Cache memory mode: Ask Question button disabled until page is scanned
       this.askQuestionBtn.disabled = !hasScannedContent;
       this.askQuestionBtn.style.opacity = hasScannedContent ? '1' : '0.5';
       this.askQuestionBtn.title = hasScannedContent ? 'Ask a question about the scanned content' : 'Please scan the page first';
     } else {
-      // Casual mode: Ask Question button always enabled (does scan + ask)
+      // Normal mode: Ask Question button always enabled (does scan + ask)
       this.askQuestionBtn.disabled = false;
       this.askQuestionBtn.style.opacity = '1';
       this.askQuestionBtn.title = 'Ask a question (will automatically scan the page)';
