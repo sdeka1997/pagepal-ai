@@ -32,6 +32,22 @@ class AIProvider {
     throw new Error(`${this.name}: handleError must be implemented`);
   }
 
+  // Shared method to format user content consistently
+  formatUserContent(question, context, sessionContext = '') {
+    return `Question: ${question}${context ? `
+
+Additional context from current webpage:
+${context.substring(0, CONFIG.MAX_CONTEXT_LENGTH)}${sessionContext}` : ''}`;
+  }
+
+  // Shared method to format vision content consistently  
+  formatVisionUserContent(question, visualData, sessionContext = '') {
+    return `Question: ${question}${visualData.viewports.length > 0 ? `
+
+Additional context from current webpage: ${visualData.pageInfo.title} (${visualData.pageInfo.url})
+Screenshots: ${visualData.viewports.length} viewport screenshots captured${sessionContext}` : ''}`;
+  }
+
   // Common method used by all providers
   async askQuestion(question, context, model, apiKey, sessionContext = '') {
     try {
@@ -84,10 +100,7 @@ class OpenAIProvider extends AIProvider {
         },
         {
           role: 'user',
-          content: `Please answer this question: "${question}"
-
-${context ? `Here is some webpage content for reference:
-${context.substring(0, CONFIG.MAX_CONTEXT_LENGTH)}${sessionContext}` : ''}`
+          content: this.formatUserContent(question, context, sessionContext)
         }
       ],
       max_tokens: CONFIG.DEFAULT_MAX_TOKENS,
@@ -126,10 +139,7 @@ class GeminiProvider extends AIProvider {
         parts: [{
           text: `${PROMPTS.SYSTEM_PROMPT}
 
-Please answer this question: "${question}"
-
-${context ? `Here is some webpage content for reference:
-${context.substring(0, CONFIG.MAX_CONTEXT_LENGTH)}${sessionContext}` : ''}`
+${this.formatUserContent(question, context, sessionContext)}`
         }]
       }],
       generationConfig: {
@@ -155,9 +165,7 @@ ${context.substring(0, CONFIG.MAX_CONTEXT_LENGTH)}${sessionContext}` : ''}`
           {
             text: `${PROMPTS.VISION_SYSTEM_PROMPT}
 
-Please answer this question: "${question}"
-
-${visualData.viewports.length > 0 ? `I've captured ${visualData.viewports.length} viewport screenshots of this page: ${visualData.pageInfo.title} (${visualData.pageInfo.url})${sessionContext}` : ''}`
+${this.formatVisionUserContent(question, visualData, sessionContext)}`
           },
           ...imageParts
         ]
@@ -801,17 +809,14 @@ class PagePalAIPopup {
         messages: [
           {
             role: 'system',
-            content: `You are a helpful AI assistant. You can answer general knowledge questions and also analyze webpage screenshots when provided.
-                     When analyzing screenshots, you can see the visual layout, images, text positioning, sidebars, navigation elements, and overall design.
-                     For general questions not related to the screenshots, answer normally using your knowledge.
-                     Be concise but thorough in your responses.`
+            content: PROMPTS.VISION_SYSTEM_PROMPT
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: `Please answer this question: "${question}"\n\n${visualData.viewports.length > 0 ? `I've captured ${visualData.viewports.length} viewport screenshots of this page: ${visualData.pageInfo.title} (${visualData.pageInfo.url})${sessionContext}` : ''}`
+                text: this.formatVisionUserContent(question, visualData, sessionContext)
               },
               ...visualData.viewports.map((viewport, index) => ({
                 type: 'image_url',

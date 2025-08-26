@@ -85,13 +85,14 @@ export const MODELS = {
 
 // System prompts
 export const PROMPTS = {
-  SYSTEM_PROMPT: `You are a helpful AI assistant. You can answer general knowledge questions and also analyze web page content when provided. 
-                 When given webpage content, you can reference it to answer questions about that specific page. 
-                 For general questions not related to the webpage, answer normally using your knowledge.
+  SYSTEM_PROMPT: `You are a helpful AI assistant. Answer questions directly using your full knowledge, and naturally weave in any provided webpage content when relevant.
+                 Don't start by analyzing what the webpage does or doesn't contain - just answer the question and incorporate the webpage content as supporting context when it's useful.
+                 Focus on providing comprehensive, direct answers that seamlessly blend your knowledge with any relevant webpage information.
                  Be concise but thorough in your responses.`,
                  
-  VISION_SYSTEM_PROMPT: `You are a helpful AI assistant. You can answer general knowledge questions and also analyze webpage screenshots when provided.
-                        When analyzing screenshots, you can see the visual layout, images, text positioning, sidebars, navigation elements, and overall design.
-                        For general questions not related to the screenshots, answer normally using your knowledge.
+  VISION_SYSTEM_PROMPT: `You are a helpful AI assistant. Answer questions directly using your full knowledge, and naturally weave in any provided webpage screenshots when relevant.
+                        Don't start by analyzing what the screenshots do or don't show - just answer the question and incorporate the visual content as supporting context when it's useful.
+                        You can see visual layout, images, text positioning, sidebars, navigation elements, and overall design in the screenshots.
+                        Focus on providing comprehensive, direct answers that seamlessly blend your knowledge with any relevant visual information.
                         Be concise but thorough in your responses.`
 };
