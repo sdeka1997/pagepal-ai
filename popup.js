@@ -24,12 +24,31 @@ class AIProvider {
     throw new Error(`${this.name}: formatRequest must be implemented`);
   }
 
+  formatVisionRequest(question, visualData, model, sessionContext) {
+    throw new Error(`${this.name}: formatVisionRequest must be implemented`);
+  }
+
   parseResponse(data) {
     throw new Error(`${this.name}: parseResponse must be implemented`);
   }
 
-  handleError(response, model) {
-    throw new Error(`${this.name}: handleError must be implemented`);
+  async handleError(response, model) {
+    throw createAPIError(response, this.name);
+  }
+
+  // Generic method to make HTTP requests to AI providers
+  async makeAPIRequest(endpoint, headers, body) {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      await this.handleError(response, this.name);
+    }
+
+    return await response.json();
   }
 
   // Shared method to format user content consistently
@@ -55,17 +74,21 @@ Screenshots: ${visualData.viewports.length} viewport screenshots captured${sessi
       const headers = this.getHeaders(apiKey);
       const body = this.formatRequest(question, context, model, sessionContext);
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(body)
-      });
+      const data = await this.makeAPIRequest(endpoint, headers, body);
+      return this.parseResponse(data);
+    } catch (error) {
+      throw error;
+    }
+  }
 
-      if (!response.ok) {
-        await this.handleError(response, model);
-      }
+  // Common vision method used by all providers
+  async askVisionQuestion(question, visualData, model, apiKey, sessionContext = '') {
+    try {
+      const endpoint = this.getEndpoint(model, apiKey);
+      const headers = this.getHeaders(apiKey);
+      const body = this.formatVisionRequest(question, visualData, model, sessionContext);
 
-      const data = await response.json();
+      const data = await this.makeAPIRequest(endpoint, headers, body);
       return this.parseResponse(data);
     } catch (error) {
       throw error;
@@ -108,12 +131,38 @@ class OpenAIProvider extends AIProvider {
     };
   }
 
-  parseResponse(data) {
-    return data.choices[0].message.content;
+  formatVisionRequest(question, visualData, model, sessionContext) {
+    return {
+      model: 'gpt-4o', // Use vision model
+      messages: [
+        {
+          role: 'system',
+          content: PROMPTS.VISION_SYSTEM_PROMPT
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: this.formatVisionUserContent(question, visualData, sessionContext)
+            },
+            ...visualData.viewports.map((viewport, index) => ({
+              type: 'image_url',
+              image_url: {
+                url: viewport.screenshot,
+                detail: 'high'
+              }
+            }))
+          ]
+        }
+      ],
+      max_tokens: CONFIG.DEFAULT_MAX_TOKENS,
+      temperature: CONFIG.DEFAULT_TEMPERATURE,
+    };
   }
 
-  async handleError(response, model) {
-    throw createAPIError(response, this.name);
+  parseResponse(data) {
+    return data.choices[0].message.content;
   }
 }
 
@@ -177,40 +226,12 @@ ${this.formatVisionUserContent(question, visualData, sessionContext)}`
     };
   }
 
-  // Vision-specific method
-  async askVisionQuestion(question, visualData, model, apiKey, sessionContext = '') {
-    try {
-      const endpoint = this.getEndpoint(model, apiKey);
-      const headers = this.getHeaders(apiKey);
-      const body = this.formatVisionRequest(question, visualData, model, sessionContext);
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        await this.handleError(response, model);
-      }
-
-      const data = await response.json();
-      return this.parseResponse(data);
-    } catch (error) {
-      throw error;
-    }
-  }
-
   parseResponse(data) {
     if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
       throw new Error('No response generated from Gemini');
     }
     
     return data.candidates[0].content.parts[0].text;
-  }
-
-  async handleError(response, model) {
-    throw createAPIError(response, this.name);
   }
 }
 
@@ -282,6 +303,20 @@ class PagePalAIPopup {
     this.init();
   }
 
+  // Get the appropriate provider for a given model
+  getProviderForModel(model) {
+    if (model.startsWith('gemini')) return this.geminiProvider;
+    if (model.startsWith('gpt')) return this.openaiProvider;
+    throw new Error(`Unknown provider for model: ${model}`);
+  }
+
+  // Get provider name for display purposes
+  getProviderNameForModel(model) {
+    if (model.startsWith('gemini')) return 'Gemini';
+    if (model.startsWith('gpt')) return 'OpenAI';
+    throw new Error(`Unknown provider for model: ${model}`);
+  }
+
   init() {
     this.askQuestionBtn.addEventListener('click', () => this.handleAskQuestion());
     this.scanPageBtn.addEventListener('click', () => this.handleScanPage());
@@ -309,8 +344,14 @@ class PagePalAIPopup {
     this.updateUIForSessionStatus();
     this.updateCacheMemoryUI();
     
-    // Save model preference when changed
-    this.modelSelect.addEventListener('change', () => this.saveModelPreference());
+    // Show initial cost estimate
+    this.updateCostEstimate();
+    
+    // Save model preference when changed and update cost estimate
+    this.modelSelect.addEventListener('change', () => {
+      this.saveModelPreference();
+      this.updateCostEstimate();
+    });
   }
 
   async loadPreferences() {
@@ -357,7 +398,7 @@ class PagePalAIPopup {
       // Load cumulative cost
       this.cumulativeCost = syncResult.cumulativeCost || 0;
       if (this.cumulativeCost > 0 && planType === 'paid') {
-        this.cumulativeCostSpan.textContent = `$${this.cumulativeCost.toFixed(4)}`;
+        this.cumulativeCostSpan.textContent = this.formatCost(this.cumulativeCost);
         this.costInfo.style.display = 'block';
       }
       
@@ -385,6 +426,8 @@ class PagePalAIPopup {
         // Initialize UI with masked values for all stored keys
         await this.apiKeyManager.initializeUIElement(this.openaiApiKeyInput, 'openai');
         await this.apiKeyManager.initializeUIElement(this.geminiApiKeyInput, 'gemini');
+        // Update cost estimate after model is loaded
+        this.updateCostEstimate();
       } else {
         this.showSettings();
       }
@@ -449,6 +492,8 @@ class PagePalAIPopup {
     this.settingsSection.style.display = 'block';
     this.mainSection.style.display = 'none';
     this.settingsBtn.style.display = 'none'; // Hide settings button when on settings page
+    this.hideAnswer(); // Hide answer when switching to settings
+    this.hideStatus(); // Hide error messages when switching to settings
     
     // Ensure proper provider settings visibility first
     this.toggleProviderSettings();
@@ -631,6 +676,7 @@ class PagePalAIPopup {
         await this.performAutoScan();
       } catch (error) {
         console.error('Auto-scan failed:', error);
+        this.setLoading(false, '', 'ask'); // Clear loading state on error
         this.showStatus(`Error scanning page: ${error.message}`, 'error');
         return;
       }
@@ -648,6 +694,7 @@ class PagePalAIPopup {
           timestamp: Date.now()
         };
       } else {
+        this.setLoading(false, '', 'ask'); // Clear loading state on error
         this.showStatus('Please scan the page first before asking questions.', 'error');
         return;
       }
@@ -655,14 +702,14 @@ class PagePalAIPopup {
 
     // Check if appropriate API key is configured
     const selectedModel = this.modelSelect.value;
-    const isGemini = selectedModel.startsWith('gemini');
-    
     const apiKey = await this.apiKeyManager.getAPIKeyForModel(selectedModel);
     
     if (!apiKey) {
-      const provider = selectedModel.startsWith('gpt') ? 'OpenAI' : 'Gemini';
-      this.showStatus(`Please configure your ${provider} API key first.`, 'error');
-      this.showSettings();
+      const providerName = this.getProviderNameForModel(selectedModel);
+      this.setLoading(false, '', 'ask'); // Clear any loading state
+      this.showStatus(`Please configure your ${providerName} API key in the settings panel.`, 'error');
+      // Auto-hide the error after 4 seconds
+      setTimeout(() => this.hideStatus(), 4000);
       return;
     }
 
@@ -679,43 +726,38 @@ class PagePalAIPopup {
       let estimatedCost = 0;
       let combinedVisualData = null;
       
+      const provider = this.getProviderForModel(selectedModel);
+      
       if (this.isVisualMode(extractionMode)) {
         // Send question with visual data (current page + session accumulated visuals)
         combinedVisualData = this.buildCombinedVisualData(pageData.data);
         
         // Calculate cost for visual mode using combined screenshot count
-        const visionModel = isGemini ? 'gemini-1.5-vision' : 'gpt-4o-vision';
+        const visionModel = selectedModel.startsWith('gemini') ? 'gemini-1.5-vision' : 'gpt-4o-vision';
         const inputText = `Question: ${question}\nPage: ${pageData.data.pageInfo.title}${sessionContext}`;
         estimatedCost = this.calculateCost(visionModel, inputText, '', combinedVisualData.viewports.length);
-        if (isGemini) {
-          answer = await this.geminiProvider.askVisionQuestion(question, combinedVisualData, selectedModel, apiKey, sessionContext);
-        } else {
-          answer = await this.askQuestionWithVisual(question, combinedVisualData, selectedModel, apiKey, sessionContext);
-        }
+        answer = await provider.askVisionQuestion(question, combinedVisualData, selectedModel, apiKey, sessionContext);
       } else {
         // Calculate cost for text mode
         const inputText = `Question: ${question}\nCurrent Page: ${pageData.text}${sessionContext}`;
         estimatedCost = this.calculateCost(selectedModel, inputText, '');
         
         // Send question with text
-        if (isGemini) {
-          answer = await this.geminiProvider.askQuestion(question, pageData.text, selectedModel, apiKey, sessionContext);
-        } else {
-          answer = await this.openaiProvider.askQuestion(question, pageData.text, selectedModel, apiKey, sessionContext);
-        }
+        answer = await provider.askQuestion(question, pageData.text, selectedModel, apiKey, sessionContext);
       }
       
       // Update cost with actual answer length and show result
       if (this.isVisualMode(extractionMode)) {
         const finalInputText = `Question: ${question}\nPage: ${pageData.data.pageInfo.title}${sessionContext}`;
-        estimatedCost = this.calculateCost(isGemini ? 'gemini-1.5-vision' : 'gpt-4o-vision', finalInputText, answer, combinedVisualData.viewports.length);
+        const visionModel = selectedModel.startsWith('gemini') ? 'gemini-1.5-vision' : 'gpt-4o-vision';
+        estimatedCost = this.calculateCost(visionModel, finalInputText, answer, combinedVisualData.viewports.length);
       } else {
         const finalInputText = `Question: ${question}\nContext: ${pageData.text}${sessionContext}`;
         estimatedCost = this.calculateCost(selectedModel, finalInputText, answer);
       }
       
       this.showAnswer(answer);
-      await this.showCostInfo(estimatedCost);
+      await this.addToCumulativeCost(estimatedCost);
       this.hideStatus();
 
     } catch (error) {
@@ -794,61 +836,6 @@ class PagePalAIPopup {
         resolve({ success: false, error: error.message });
       }
     });
-  }
-
-  async askQuestionWithVisual(question, visualData, model, apiKey, sessionContext = '') {
-    // For visual mode, we'll create a composite image and send to GPT-4 Vision
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o', // Use vision model
-        messages: [
-          {
-            role: 'system',
-            content: PROMPTS.VISION_SYSTEM_PROMPT
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: this.formatVisionUserContent(question, visualData, sessionContext)
-              },
-              ...visualData.viewports.map((viewport, index) => ({
-                type: 'image_url',
-                image_url: {
-                  url: viewport.screenshot,
-                  detail: 'high'
-                }
-              }))
-            ]
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      
-      if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your OpenAI API key.');
-      } else if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      } else if (response.status === 402) {
-        throw new Error('Insufficient credits. Please check your account billing.');
-      }
-      
-      throw new Error(errorData.error?.message || `OpenAI API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
   }
 
 
@@ -1059,9 +1046,9 @@ class PagePalAIPopup {
       'gpt-4-turbo': { input: 0.01, output: 0.03 }, // per 1K tokens
       'gpt-4o-vision': { input: 0.0025, output: 0.01, image: 0.00765 }, // per image (high detail)
       
-      // Gemini pricing (generous free tier)
-      'gemini-1.5-flash': { input: 0.000075, output: 0.0003 }, // per 1K tokens (paid tier)
-      'gemini-1.5-pro': { input: 0.00125, output: 0.005 }, // per 1K tokens (paid tier)
+      // Gemini pricing (2024 rates, has generous free tier)
+      'gemini-1.5-flash': { input: 0.000075, output: 0.0003 }, // per 1K tokens
+      'gemini-1.5-pro': { input: 0.00125, output: 0.005 }, // per 1K tokens  
       'gemini-1.5-vision': { input: 0.00125, output: 0.005, image: 0.0025 } // per image
     };
   }
@@ -1072,13 +1059,6 @@ class PagePalAIPopup {
   }
 
   calculateCost(model, inputText, outputText, imageCount = 0) {
-    // Check if this is a Gemini model (free tier available)
-    if (model.startsWith('gemini')) {
-      // For Gemini, show $0.00 since free tier is very generous
-      // (15 requests/minute, 1M requests/day)
-      return 0;
-    }
-
     const pricing = this.getPricingInfo();
     let modelPricing;
 
@@ -1104,18 +1084,40 @@ class PagePalAIPopup {
     return cost;
   }
 
-  async showCostInfo(estimatedCost) {
-    this.cumulativeCost += estimatedCost;
+  // Update the estimated cost display based on selected model (for preview)
+  updateCostEstimate() {
+    const selectedModel = this.modelSelect.value;
+    if (!selectedModel) return;
     
-    // Show "FREE" for zero costs (Gemini free tier)
+    // Use typical question length for estimate (about 250 characters = ~60 tokens)
+    const typicalQuestion = "What do you know about this topic? Please explain it in detail with examples.";
+    const estimatedCost = this.calculateCost(selectedModel, typicalQuestion, '');
+    
+    // Show estimated cost for next question
     if (estimatedCost === 0) {
       this.estimatedCostSpan.textContent = 'FREE';
     } else {
-      this.estimatedCostSpan.textContent = `$${estimatedCost.toFixed(4)}`;
+      this.estimatedCostSpan.textContent = `$${estimatedCost.toFixed(6)}`;
     }
     
-    this.cumulativeCostSpan.textContent = `$${this.cumulativeCost.toFixed(4)}`;
     this.costInfo.style.display = 'block';
+  }
+
+  // Format cost with appropriate precision
+  formatCost(cost) {
+    if (cost >= 0.01) {
+      // Above 1 cent: show normal dollars and cents (2 decimal places)
+      return `$${cost.toFixed(2)}`;
+    } else {
+      // Below 1 cent: show enough precision to see significant figures (6 decimal places)
+      return `$${cost.toFixed(6)}`;
+    }
+  }
+
+  // Add actual usage to cumulative cost (called after successful API calls)
+  async addToCumulativeCost(actualCost) {
+    this.cumulativeCost += actualCost;
+    this.cumulativeCostSpan.textContent = this.formatCost(this.cumulativeCost);
     
     // Save cumulative cost to storage
     try {
@@ -1131,8 +1133,10 @@ class PagePalAIPopup {
 
   async resetCostTracker() {
     this.cumulativeCost = 0;
-    this.cumulativeCostSpan.textContent = '$0.00';
-    this.estimatedCostSpan.textContent = '$0.00';
+    this.cumulativeCostSpan.textContent = this.formatCost(0);
+    
+    // Update estimate after reset to show current model cost
+    this.updateCostEstimate();
     
     try {
       await chrome.storage.sync.set({ cumulativeCost: 0 });
