@@ -344,9 +344,6 @@ class PagePalAIPopup {
     this.updateUIForSessionStatus();
     this.updateCacheMemoryUI();
     
-    // Show initial cost estimate
-    this.updateCostEstimate();
-    
     // Save model preference when changed and update cost estimate
     this.modelSelect.addEventListener('change', () => {
       this.saveModelPreference();
@@ -453,9 +450,17 @@ class PagePalAIPopup {
     const provider = this.apiProviderSelect.value;
     const apiKey = this.apiKeyManager.getInputValueForProvider(provider, this.openaiApiKeyInput, this.geminiApiKeyInput);
     
+    // If the API key is masked, check if we already have a valid key saved
     if (!apiKey || this.apiKeyManager.isMaskedValue(apiKey)) {
-      this.showStatus('Please enter a valid API key.', 'error');
-      return;
+      const hasValidKey = await this.apiKeyManager.hasValidAPIKey(provider);
+      if (hasValidKey) {
+        // Key is already saved, just go back to main interface
+        this.showMainInterface();
+        return;
+      } else {
+        this.showStatus('Please enter a valid API key.', 'error');
+        return;
+      }
     }
 
     try {
@@ -581,6 +586,8 @@ class PagePalAIPopup {
     this.settingsBtn.style.display = 'block'; // Show settings button when on main interface
     this.backToMainBtn.style.display = 'none'; // Hide back button when on main interface
     this.questionInput.focus();
+    // Update cost estimate when showing main interface
+    this.updateCostEstimate();
   }
 
   async handleScanPage() {
@@ -1097,7 +1104,7 @@ class PagePalAIPopup {
     if (estimatedCost === 0) {
       this.estimatedCostSpan.textContent = 'FREE';
     } else {
-      this.estimatedCostSpan.textContent = `$${estimatedCost.toFixed(6)}`;
+      this.estimatedCostSpan.textContent = this.formatCost(estimatedCost);
     }
     
     this.costInfo.style.display = 'block';

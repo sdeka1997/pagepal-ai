@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PagePal AI",
   "description": "PagePal AI: your study buddy for the web. Summarize, learn, and understand any page instantly.",
-  "version": "0.3",
+  "version": "1.0",
   "action": {
     "default_popup": "popup.html",
     "default_title": "PagePal AI",
