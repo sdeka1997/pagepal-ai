@@ -242,6 +242,75 @@ class PagePalAIPopup {
     this.geminiProvider = new GeminiProvider();
     this.apiKeyManager = new APIKeyManager();
     
+    // Define the text extraction function that will be injected into pages
+    this.extractVisibleTextFunction = function() {
+      // Configuration constants (inlined to avoid dependencies)
+      const CONFIG = {
+        EXCLUDE_SELECTORS: [
+          'nav', 'header', 'footer', 
+          '.nav', '.navbar', '.navigation', '.header', '.footer',
+          '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
+          'script', 'style', 'noscript', 'meta', 'link', '.cookie-banner',
+          '.advertisement', '.ads', '.social-share'
+        ],
+        MAIN_CONTENT_SELECTORS: [
+          'main', '[role="main"]', '.main-content', '#main', '.content', 'article'
+        ]
+      };
+
+      function extractSimpleText() {
+        // Create a copy of the document to manipulate
+        const doc = document.cloneNode(true);
+        
+        // Remove excluded elements
+        CONFIG.EXCLUDE_SELECTORS.forEach(selector => {
+          const elements = doc.querySelectorAll(selector);
+          elements.forEach(el => el.remove());
+        });
+
+        // Try to find main content first
+        let contentElement = null;
+        for (const selector of CONFIG.MAIN_CONTENT_SELECTORS) {
+          const element = doc.querySelector(selector);
+          if (element) {
+            contentElement = element;
+            break;
+          }
+        }
+
+        // Fallback to body if no main content found
+        if (!contentElement) {
+          contentElement = doc.body;
+        }
+
+        if (!contentElement) {
+          return { success: false, error: 'No content found' };
+        }
+
+        // Extract text content
+        const text = contentElement.innerText || contentElement.textContent || '';
+        
+        return {
+          success: true,
+          text: text.trim(),
+          mode: 'structured',
+          length: text.length,
+          url: window.location.href,
+          title: document.title
+        };
+      }
+
+      // Execute and return result
+      try {
+        return extractSimpleText();
+      } catch (error) {
+        return { 
+          success: false, 
+          error: error.message 
+        };
+      }
+    };
+    
     // Initialize DOM elements
     const elementIds = [
       'askQuestionBtn', 'scanPageBtn', 'question', 'model', 'extractionMode2',
@@ -776,73 +845,36 @@ class PagePalAIPopup {
   }
 
   async getPageContent(extractionMode = 'structured') {
-    return new Promise(async (resolve) => {
-      try {
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!tabs[0]) {
-          resolve({ success: false, error: 'No active tab found' });
-          return;
-        }
-
-        const tabId = tabs[0].id;
-
-        if (this.isVisualMode(extractionMode)) {
-          // Use the visual mode from extraction mode (content script already loaded via manifest)
-          const visualMode = this.getVisualModeFromExtraction(extractionMode);
-
-          // Send message for visual extraction with timeout
-          let isResolved = false;
-          
-          // Auto-scroll needs more time than current viewport
-          const timeoutDuration = visualMode === 'auto_scroll' ? 30000 : 10000; // 30s for auto-scroll, 10s for current viewport
-          
-          const messageTimeout = setTimeout(() => {
-            if (!isResolved) {
-              isResolved = true;
-              resolve({ 
-                success: false, 
-                error: `Visual mode timed out after ${timeoutDuration/1000} seconds` 
-              });
-            }
-          }, timeoutDuration);
-
-          chrome.tabs.sendMessage(tabId, { 
-            action: 'GET_PAGE_VISUAL',
-            mode: visualMode
-          }, (response) => {
-            clearTimeout(messageTimeout);
-            if (!isResolved) {
-              isResolved = true;
-              if (chrome.runtime.lastError) {
-                resolve({ 
-                  success: false, 
-                  error: chrome.runtime.lastError.message 
-                });
-              } else {
-                resolve(response || { success: false, error: 'No response from content script' });
-              }
-            }
-          });
-        } else {
-          // Send message with extraction mode (content script already loaded via manifest)
-          chrome.tabs.sendMessage(tabId, { 
-            action: 'GET_PAGE_TEXT',
-            mode: extractionMode
-          }, (response) => {
-            if (chrome.runtime.lastError) {
-              resolve({ 
-                success: false, 
-                error: chrome.runtime.lastError.message 
-              });
-            } else {
-              resolve(response || { success: false, error: 'No response from content script' });
-            }
-          });
-        }
-      } catch (error) {
-        resolve({ success: false, error: error.message });
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]) {
+        return { success: false, error: 'No active tab found' };
       }
-    });
+
+      const tabId = tabs[0].id;
+
+      // Visual modes are disabled, only support structured text extraction
+      if (this.isVisualMode(extractionMode)) {
+        return { 
+          success: false, 
+          error: 'Visual extraction is currently disabled' 
+        };
+      }
+
+      // Inject the text extraction function and execute it
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: this.extractVisibleTextFunction
+      });
+
+      if (results && results[0] && results[0].result) {
+        return results[0].result;
+      } else {
+        return { success: false, error: 'No result from injected script' };
+      }
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 
 

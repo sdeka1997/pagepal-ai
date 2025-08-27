@@ -12,19 +12,10 @@
       "128": "icon128.png"
     }
   },
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content-enhanced.js", "content-visual.js"]
-    }
-  ],
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": ["activeTab", "scripting", "storage", "tabs", "tabCapture"]
+  "permissions": ["activeTab", "scripting", "storage"]
 }
